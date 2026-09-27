@@ -34,7 +34,6 @@ receipts = Table(
         Column('tip', Float),
         )
 
-metadata_obj.create_all(engine)
 
 
 rows = [
@@ -44,43 +43,68 @@ rows = [
         {"receipt_id": 4, "customer_name": "Margaret James", "price": 21.11, "tip": 1.00},
         ]
 
+
+table_name = 'waiters'
+waiters = Table(
+        table_name,
+        metadata_obj,
+        Column('receipt_id', Integer, primary_key=True),
+        Column('waiter_name', String(16), primary_key=True),
+        )
+
+
+metadata_obj.create_all(engine)
 insert_rows_into_table(rows, receipts)
 
+rows = [
+        {"receipt_id": 1, "waiter_name": "Pakita"},
+        {"receipt_id": 2, "waiter_name": "Lolita"},
+        {"receipt_id": 3, "waiter_name": "Lolita"},
+        {"receipt_id": 4, "waiter_name": "Doidita"},
+        ]
+
+insert_rows_into_table(rows, waiters)
+
 inspector = inspect(engine)
-col_info = [(col['name'], col['type']) for col in inspector.get_columns('receipts')]
 
-table_description = "Columns:\n" + "\n".join([f'    - {name}: {col_type}' for
+updated_description = """Allows you to perform SQL queries on the table. Beware that this tool's output is a string representation of the execution output.
+It can use the following tables:"""
+
+for table in ['receipts', 'waiters']:
+    col_info = [(col['name'], col['type']) for col in
+                inspector.get_columns(table)]
+    table_description = f"Table '{table}':\n"
+    table_description += "Columns:\n" + "\n".join([f'    - {name}: {col_type}' for
                                               name, col_type in col_info])
-print(table_description)
 
-from smolagents import tool
+    updated_description += "\n\n" + table_description
+    print(table_description)
 
-@tool
-def sql_engine(query: str) -> str:
-    """
-    Allows you to perform SQL queries on the table. Returns a string representation of the result.
-    The table is named 'receipts'. Its descriptions is as follows:
-        Columns:
-            - receipt_id: INTEGER
-            - customer_name: VARCHAR(16)
-            - price: FLOAT
-            - tip: FLOAT
+from smolagents import tool, Tool
 
-    Args:
-         query: The query to perform. This should be correct SQL for sqlite.
-    """
-    output = ""
-    with engine.connect() as con:
-        rows = con.execute(text(query))
-        for row in rows:
-            output += "\n" + str(row)
-        return output
+class SqlEngine(Tool):
+    name = 'sql_engine'
+    description=updated_description
+    inputs = {
+            "query": {
+                "type": "string",
+                "description": "The query to perform. This should be correct SQL.",
+                }
+            }
+    output_type = 'string'
 
+    def forward(self, query: str) -> str:
+        output = ""
+        with engine.connect() as con:
+            rows = con.execute(text(query))
+            for row in rows:
+                output += "\n" + str(row)
+            return output
+sql_engine = SqlEngine()
 from smolagents import CodeAgent, InferenceClientModel
 
 agent = CodeAgent(
         tools=[sql_engine],
-        model=InferenceClientModel(model_id='meta-llama/Llama-3.1-8B-Instruct'),
+        model=InferenceClientModel(model_id='Qwen/Qwen3-Next-80B-A3B-Thinking'),
         )
-agent.run("""Can you give me the name of the client who got the most expensive
-receipt?""")
+agent.run(""" Which waiter got more money from tips? """)
