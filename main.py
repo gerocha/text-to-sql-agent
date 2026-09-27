@@ -105,6 +105,6 @@ from smolagents import CodeAgent, InferenceClientModel
 
 agent = CodeAgent(
         tools=[sql_engine],
-        model=InferenceClientModel(model_id='Qwen/Qwen3-Next-80B-A3B-Thinking'),
+        model=InferenceClientModel(model_id='Qwen/Qwen3-4B-Instruct-2507'),
         )
 agent.run(""" Which waiter got more money from tips? """)
